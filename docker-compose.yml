@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api_gateway
+    environment:
+      - REACT_APP_API_GATEWAY_URL=http://api_gateway:8000
+
+  api_gateway:
+    build: ./api_gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    ports:
+      - "9000:9000"
+    depends_on:
+      - api_collector
+      - scraper
+      - mongo_db
+    environment:
+      - MONGO_URL=mongodb://mongo_db:27017
+
+  api_collector:
+    build: ./api_collector
+    ports:
+      - "10000:10000"
+
+  scraper:
+    build: ./scraper
+    ports:
+      - "11000:11000"
+
+  mongo_db:
+    build: ./mongo_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
