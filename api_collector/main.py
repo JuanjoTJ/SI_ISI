@@ -2,6 +2,7 @@ from fastapi import FastAPI, Query # Para crear la API
 from pydantic import BaseModel # Para definir el modelo de datos
 from typing import List, Optional # Para manejar listas y tipos opcionales
 import httpx # Para hacer peticiones HTTP
+from datetime import datetime # Para manejar fechas y horas
 
 app = FastAPI() # Inicializa la aplicación FastAPI
 
@@ -11,6 +12,8 @@ class Producto(BaseModel):
     description: str
     category: str
     image: str
+    source: Optional[str] = None
+    timestamp: datetime
 
 # Lista de URLs de proveedores
 PROVEEDORES = [
@@ -37,11 +40,17 @@ async def recolectar(search: Optional[str] = Query(None)):
                     if search:
                         # Filtramos los productos si se proporciona un término de búsqueda
                         productos.extend(
-                            [Producto(**item) for item in data if search.lower() in item.get('title', '').lower()]
+                            [
+                                Producto(**item, source=url, timestamp=datetime.utcnow())
+                                for item in data
+                                if search.lower() in item.get("title", "").lower()
+                            ]
                         )
                     else:
                         # Añadimos todos los productos si no hay término de búsqueda
-                        productos.extend([Producto(**item) for item in data])
+                        productos.extend(
+                            [Producto(**item, source=url, timestamp=datetime.utcnow()) for item in data]
+                        )
                 else:
                     print(f"Datos inesperados de {url}: {data}")
 

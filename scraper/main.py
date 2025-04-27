@@ -10,6 +10,25 @@ import requests
 # Importar re para trabajar con expresiones regulares (limpiar textos)
 import re
 
+# Importar datetime para manejar fechas y horas
+from datetime import datetime
+
+# Para definir el modelo de datos
+from pydantic import BaseModel 
+
+# Importar Optional para manejar tipos opcionales
+from typing import Optional
+
+# BaseModel de Pydantic para definir el modelo de datos
+class Producto(BaseModel):
+    title: str
+    price: float
+    description: str
+    category: str
+    image: Optional[str] = None
+    source: Optional[str] = None
+    timestamp: datetime
+
 # Crear una instancia de FastAPI
 app = FastAPI()
 
@@ -42,6 +61,15 @@ def scrapear(search: str = Query(None)):
         # Extraemos la descripción del producto
         descripcion = item.select_one(".description").text
 
+        # Extraemos la imagen del producto (atributo 'src' de la etiqueta img)
+        # y la convertimos a una URL completa
+        imagen_tag = item.select_one(".image img")
+        if imagen_tag:
+            imagen = imagen_tag.get("src")
+            imagen = f"https://webscraper.io{imagen}"
+        else:
+            imagen = None  # Si no se encuentra la imagen, asignamos None
+
         try:
             # Convertimos el precio limpio a un número decimal (float)
             precio = float(precio_limpio)
@@ -49,21 +77,26 @@ def scrapear(search: str = Query(None)):
             # Si no se puede convertir, asignamos 0.0 como precio por defecto
             precio = 0.0
 
-        # Agregamos el producto extraido a la lista
-        productos.append({
-            "nombre": nombre,
-            "precio": precio,
-            "descripcion": descripcion,
-            "categoria": "electronics",
-            "fuente": url
-        })
+       # Creamos una instancia del modelo Producto
+        producto = Producto(
+            title=nombre,
+            price=precio,
+            description=descripcion,
+            category="electronics",
+            image=imagen,
+            source=url,
+            timestamp=datetime.utcnow()
+        )
+
+        # Agregamos el producto a la lista
+        productos.append(producto)
 
     # Si se proporciona un término de búsqueda, filtramos los productos
     if search:
         productos = [
             producto for producto in productos
-            if search.lower() in producto["nombre"].lower()
+            if search.lower() in producto.title.lower()
         ]
 
     # Devuelve todos los productos extraídos en formato JSON
-    return productos
+    return [producto.dict() for producto in productos]

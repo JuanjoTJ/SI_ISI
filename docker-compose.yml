@@ -38,6 +38,13 @@ services:
     ports:
       - "11000:11000"
 
+  data_processor:
+    build: ./data_processor
+    ports:
+      - "13000:13000"
+    depends_on:
+      - mongo_db
+
   mongo_db:
     build: ./mongo_db
     ports:
