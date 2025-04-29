@@ -17,7 +17,7 @@ class Producto(BaseModel):
 
 # Lista de URLs de proveedores
 PROVEEDORES = [
-    "https://fakestoreapi.com/products"
+    "https://fakestoreapi.com/products", "https://apismaster.com/product"
 ]
 
 # Endpoint para recolectar productos de los proveedores

@@ -52,5 +52,11 @@ services:
     volumes:
       - mongo_data:/data/db
 
+  scheduler:
+    build: ./scheduler
+    depends_on:
+      - api_collector
+      - scraper
+
 volumes:
   mongo_data:
