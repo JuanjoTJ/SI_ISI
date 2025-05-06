@@ -38,6 +38,13 @@ services:
     ports:
       - "11000:11000"
 
+  scheduler:
+    build: ./scheduler
+    depends_on:
+      - backend
+      - api_collector
+      - scraper
+
   data_processor:
     build: ./data_processor
     ports:
@@ -52,11 +59,6 @@ services:
     volumes:
       - mongo_data:/data/db
 
-  scheduler:
-    build: ./scheduler
-    depends_on:
-      - api_collector
-      - scraper
 
 volumes:
   mongo_data:

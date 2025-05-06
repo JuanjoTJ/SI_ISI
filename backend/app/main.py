@@ -9,6 +9,7 @@ from app.services.productos import obtener_productos
 from app.services.productos import recolectar_desde_proveedores
 from app.services.productos import web_scraping
 
+
 # Crear una instancia de FastAPI
 app = FastAPI()
 
@@ -17,6 +18,7 @@ app = FastAPI()
 async def productos(search: Optional[str] = Query(None)):
     # Llama de forma asíncrona a la función obtener_productos con el parámetro de búsqueda 'search'
     return await obtener_productos(search)
+
 
 # Define un endpoint GET en la ruta /recolectar
 @app.get("/recolectar")
@@ -27,6 +29,7 @@ async def recolectar(search: Optional[str] = Query(None)):
     else:
         # Llama de forma asíncrona a la función para actualizar todos los datos de productos
         return await recolectar_desde_proveedores()
+
 
 # Define un endpoint GET en la ruta /scrapear
 @app.get("/scrapear")

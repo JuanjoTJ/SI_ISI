@@ -12,10 +12,10 @@ client = AsyncIOMotorClient(MONGO_URL)
 db = client["productos_db"]
 coleccion = db["productos"]
 
-# Transforma el documento para que el campo "_id" sea una cadena
+# Transforma el documento para que los campos "_id"
 def transformar_documento(documento: dict) -> dict:
     if "_id" in documento:
-        documento["_id"] = str(documento["_id"])
+        documento["_id"] = str(documento["_id"])  # Convierte ObjectId a cadena
     return documento
 
 

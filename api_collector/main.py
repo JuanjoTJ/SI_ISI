@@ -11,13 +11,14 @@ class Producto(BaseModel):
     price: float
     description: str
     category: str
-    image: str
+    image: Optional[str] = None
     source: Optional[str] = None
     timestamp: datetime
 
 # Lista de URLs de proveedores
 PROVEEDORES = [
-    "https://fakestoreapi.com/products", "https://apismaster.com/product"
+    "https://fakestoreapi.com/products",
+    "https://api.freeapi.app/api/v1/public/randomproducts"
 ]
 
 # Endpoint para recolectar productos de los proveedores
@@ -35,24 +36,50 @@ async def recolectar(search: Optional[str] = Query(None)):
                 # Transformamos la respuesta a formato JSON
                 data = res.json()
 
-                # Validamos que los datos sean una lista
+                # Manejo de diferentes estructuras de datos
                 if isinstance(data, list):
-                    if search:
-                        # Filtramos los productos si se proporciona un término de búsqueda
+                    # Caso 1: Los datos son una lista directamente
+                    productos.extend(
+                        [
+                            Producto(
+                                **{
+                                    **item,
+                                    "image": item.get("image") if isinstance(item.get("image"), str) else None
+                                },
+                                source=url,
+                                timestamp=datetime.utcnow()
+                            )
+                            for item in data
+                            if not search or search.lower() in item.get("title", "").lower()
+                        ]
+                    )
+                elif isinstance(data, dict) and "data" in data:
+                    # Caso 2: Los productos están dentro de un campo "data"
+                    nested_data = data["data"]
+                    if isinstance(nested_data, dict) and "data" in nested_data:
+                        # Caso 2.1: Los productos están dentro de un segundo nivel de "data"
+                        nested_data = nested_data["data"]
+
+                    if isinstance(nested_data, list):
                         productos.extend(
                             [
-                                Producto(**item, source=url, timestamp=datetime.utcnow())
-                                for item in data
-                                if search.lower() in item.get("title", "").lower()
+                                Producto(
+                                    **{
+                                        **item,
+                                        # Obtiene la primera imagen de "images" si es una lista, o usa None
+                                        "image": item.get("images")[0] if isinstance(item.get("images"), list) else None
+                                    },
+                                    source=url,
+                                    timestamp=datetime.utcnow()
+                                )
+                                for item in nested_data
+                                if not search or search.lower() in item.get("title", "").lower()
                             ]
                         )
                     else:
-                        # Añadimos todos los productos si no hay término de búsqueda
-                        productos.extend(
-                            [Producto(**item, source=url, timestamp=datetime.utcnow()) for item in data]
-                        )
+                        print(f"Estructura de datos inesperada en {url}: {nested_data}")
                 else:
-                    print(f"Datos inesperados de {url}: {data}")
+                    print(f"Estructura de datos inesperada en {url}: {data}")
 
             except httpx.HTTPStatusError as http_err:
                 print(f"Error HTTP con {url}: {http_err}")

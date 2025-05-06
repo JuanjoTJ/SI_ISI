@@ -113,7 +113,6 @@ async def obtener_productos(search: str = None):
     except Exception as e:
         # Maneja cualquier excepción y lanza un error HTTP
         raise HTTPException(status_code=500, detail=f"Error al obtener productos: {str(e)}")
-    
 
 # Define una función asíncrona para recolectar datos desde proveedores externos
 async def recolectar_desde_proveedores(search: str = None):
