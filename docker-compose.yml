@@ -23,6 +23,7 @@ services:
       - "9000:9000"
     depends_on:
       - api_collector
+      - api_collector_2
       - scraper
       - mongo_db
     environment:
@@ -32,17 +33,32 @@ services:
     build: ./api_collector
     ports:
       - "10000:10000"
+    depends_on:
+      - data_processor
+      - mongo_db
+
+  api_collector_2:
+    build: ./api_collector_2
+    ports:
+      - "10001:10001"
+    depends_on:
+      - data_processor
+      - mongo_db
 
   scraper:
     build: ./scraper
     ports:
       - "11000:11000"
+    depends_on:
+      - data_processor
+      - mongo_db
 
   scheduler:
     build: ./scheduler
     depends_on:
       - backend
       - api_collector
+      - api_collector_2
       - scraper
 
   data_processor:
