@@ -16,8 +16,12 @@ app = FastAPI()
 # Define un endpoint GET en la ruta /productos
 @app.get("/productos")
 async def productos(search: Optional[str] = Query(None)):
-    # Llama de forma asíncrona a la función obtener_productos con el parámetro de búsqueda 'search'
-    return await obtener_productos(search)
+    if search:
+        # Llama de forma asíncrona a la función obtener_productos con el parámetro de búsqueda 'search'
+        return await obtener_productos(search)
+    else:
+        # Llama de forma asíncrona a la función obtener_productos para obtener todos los productos
+        return await obtener_productos()
 
 
 # Define un endpoint GET en la ruta /recolectar

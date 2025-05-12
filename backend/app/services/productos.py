@@ -16,19 +16,19 @@ coleccion = db["productos"]
 # Función auxiliar para recolectar datos y actualizar la base de datos a través de data_processor
 async def recolectar_y_actualizar(search: str = None):
     try:
-        # Llama al api_colector y al scraper
+        # Llama a los api_colectors y al scraper
         if search:
-            productos_proveedores = await recolectar_desde_proveedores(search)
+            productos_api_1 = await recolectar_desde_proveedores(search)
             productos_scraping = await web_scraping(search)
         else:
             # Si no se proporciona un término de búsqueda, llama a las funciones sin parámetros
-            productos_proveedores = await recolectar_desde_proveedores()
+            productos_api_1 = await recolectar_desde_proveedores()
             productos_scraping = await web_scraping()
 
         # Combina los resultados de ambas funciones
         nuevos_productos = []
-        if isinstance(productos_proveedores, list):
-            nuevos_productos.extend(productos_proveedores)
+        if isinstance(productos_api_1, list):
+            nuevos_productos.extend(productos_api_1)
         if isinstance(productos_scraping, list):
             nuevos_productos.extend(productos_scraping)
 
@@ -113,6 +113,7 @@ async def obtener_productos(search: str = None):
     except Exception as e:
         # Maneja cualquier excepción y lanza un error HTTP
         raise HTTPException(status_code=500, detail=f"Error al obtener productos: {str(e)}")
+
 
 # Define una función asíncrona para recolectar datos desde proveedores externos
 async def recolectar_desde_proveedores(search: str = None):
