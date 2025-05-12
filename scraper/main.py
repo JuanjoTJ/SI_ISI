@@ -23,10 +23,9 @@ from typing import Optional
 class Producto(BaseModel):
     title: str
     price: float
-    description: str
-    category: str
+    product_url: str
     image: Optional[str] = None
-    source: Optional[str] = None
+    product_provider: Optional[str] = None
     timestamp: datetime
 
 # Crear una instancia de FastAPI
@@ -58,8 +57,14 @@ def scrapear(search: str = Query(None)):
         # Usamos una expresión regular para limpiar el precio, eliminando caracteres no numéricos
         precio_limpio = re.sub(r"[^\d.]", "", raw_precio)
 
-        # Extraemos la descripción del producto
-        descripcion = item.select_one(".description").text
+        # Extraemos la URL del producto (atributo 'href' del enlace)
+        # y la convertimos a una URL completa
+        producto_tag = item.select_one(".title")
+        if producto_tag:
+            producto_url = producto_tag.get("href")
+            producto_url = f"https://webscraper.io{producto_url}"
+        else:
+            producto_url = None
 
         # Extraemos la imagen del producto (atributo 'src' de la etiqueta img)
         # y la convertimos a una URL completa
@@ -81,10 +86,9 @@ def scrapear(search: str = Query(None)):
         producto = Producto(
             title=nombre,
             price=precio,
-            description=descripcion,
-            category="electronics",
+            product_url=producto_url,
             image=imagen,
-            source=url,
+            product_provider=url,
             timestamp=datetime.utcnow()
         )
 
