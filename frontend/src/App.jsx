@@ -16,7 +16,7 @@ function App() {
   const recolectar = async () => {
     try {
       // Hace una solicitud GET al api_gateway para obtener la lista de productos
-      const res = await axios.get("http://localhost:8000/productos", {
+      const res = await axios.get("http://localhost:8001/productos", {
         params: { search }
       });
 

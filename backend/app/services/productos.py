@@ -18,17 +18,21 @@ async def recolectar_y_actualizar(search: str = None):
     try:
         # Llama a los api_colectors y al scraper
         if search:
-            productos_api_1 = await recolectar_desde_proveedores(search)
+            productos_api_1 = await recolectar_desde_amazon(search)
+            productos_api_2 = await recolectar_desde_aliexpress(search)
             productos_scraping = await web_scraping(search)
         else:
             # Si no se proporciona un término de búsqueda, llama a las funciones sin parámetros
-            productos_api_1 = await recolectar_desde_proveedores()
+            productos_api_1 = await recolectar_desde_amazon()
+            productos_api_2 = await recolectar_desde_aliexpress()
             productos_scraping = await web_scraping()
 
         # Combina los resultados de ambas funciones
         nuevos_productos = []
         if isinstance(productos_api_1, list):
             nuevos_productos.extend(productos_api_1)
+        if isinstance(productos_api_2, list):
+            nuevos_productos.extend(productos_api_2)
         if isinstance(productos_scraping, list):
             nuevos_productos.extend(productos_scraping)
 
@@ -44,7 +48,6 @@ async def recolectar_y_actualizar(search: str = None):
 
                 # Devuelve los productos procesados desde el data_processor
                 return response.json()
-
         return None
 
     except Exception as e:
@@ -115,8 +118,8 @@ async def obtener_productos(search: str = None):
         raise HTTPException(status_code=500, detail=f"Error al obtener productos: {str(e)}")
 
 
-# Define una función asíncrona para recolectar datos desde proveedores externos
-async def recolectar_desde_proveedores(search: str = None):
+# Define una función asíncrona para recolectar datos desde Amazon
+async def recolectar_desde_amazon(search: str = None):
     try:
         # Crea un cliente HTTP asíncrono
         async with httpx.AsyncClient() as client:
@@ -136,6 +139,26 @@ async def recolectar_desde_proveedores(search: str = None):
         # Maneja cualquier excepción que ocurra durante la recolección de datos
         return {"error": f"Fallo al recolectar datos: {str(e)}"}    
     
+# Define una función asíncrona para recolectar datos desde Aliexpress
+async def recolectar_desde_aliexpress(search: str = None):
+    try:
+        # Crea un cliente HTTP asíncrono
+        async with httpx.AsyncClient() as client:
+            # Hace una petición GET al servicio externo "api_collector_2"
+            if search:
+                response = await client.get("http://api_collector_2:10001/recolectar", params={"search": search})
+            else:
+                response = await client.get("http://api_collector_2:10001/recolectar")
+
+            # Lanza una excepción si la respuesta no es exitosa
+            response.raise_for_status()
+
+            # Devuelve los datos recolectados en formato JSON
+            return response.json()
+        
+    except Exception as e:
+        # Maneja cualquier excepción que ocurra durante la recolección de datos
+        return {"error": f"Fallo al recolectar datos: {str(e)}"}    
 
 # Define una función asíncrona para scrapear datos desde un sitio web de prueba
 async def web_scraping(search: str = None):

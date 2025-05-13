@@ -26,7 +26,8 @@ def actualizar_db():
 
 # Programador
 scheduler = BlockingScheduler()
-scheduler.add_job(actualizar_db, 'interval', minutes=2)
+# Actualiza la base de datos cada 24 horas, a la medianoche
+scheduler.add_job(actualizar_db, 'cron', hour=0, minute=0)
 
-print("Scheduler iniciado. Ejecutando cada 2 minutos...")
+print("Scheduler iniciado. Ejecutando cada 24 horas...")
 scheduler.start()
