@@ -42,10 +42,18 @@ def transformar_a_producto(datos: dict) -> Producto:
 async def buscar_producto_existente(producto_dict):
     productos_en_db = coleccion.find({})  # Obtiene todos los productos de la base de datos
     async for producto in productos_en_db:
-        # Calcula la similitud entre los títulos
-        similitud = fuzz.ratio(producto_dict["product_title"], producto["product_title"])
-        if similitud >= 90:  # Considera una coincidencia si la similitud es del 90% o más
+        # Verifica que ambos títulos no sean nulos o vacíos
+        if not producto_dict["product_title"] or not producto["product_title"]:
+            continue
+
+        # Calcula la similitud entre los títulos usando fuzz.WRatio
+        similitud = fuzz.token_set_ratio(producto_dict["product_title"], producto["product_title"])
+
+        # Considera una coincidencia si la similitud es del 90% o más
+        if similitud >= 90:
             return producto
+
+    # Si no se encuentra ningún producto similar, devuelve None
     return None
 
 # Endpoint para serializar el "_id" un documento de productos
@@ -70,7 +78,6 @@ async def insertar_o_actualizar_productos(productos: list[dict]):
             # Transforma los datos genéricos al modelo Producto
             try:
                 producto = transformar_a_producto(producto_datos)
-                print(f"Producto transformado: {producto}")
             except Exception as e:
                 print(f"Error al transformar producto: {producto_datos}, Error: {str(e)}")
                 raise
