@@ -125,7 +125,16 @@ async def insertar_o_actualizar_productos(productos: list[dict]):
             # Agrega el producto procesado (actualizado o insertado) a la lista de resultados
             productos_insertados_o_actualizados.append(producto_serializable)
 
-        return {"mensaje": "Productos insertados o actualizados", "productos": productos_insertados_o_actualizados}
+        # Deduplicar productos por 'product_title'
+        productos_unicos = []
+        titulos_vistos = set()
+        for producto in productos_insertados_o_actualizados:
+            titulo = producto.get("product_title")
+            if titulo and titulo not in titulos_vistos:
+                productos_unicos.append(producto)
+                titulos_vistos.add(titulo)
+
+        return productos_unicos
 
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=f"Error de validación: {e}")
