@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query # Para crear la API
 from pydantic import BaseModel # Para definir el modelo de datos
-from typing import List, Optional # Para manejar listas y tipos opcionales
+from typing import List # Para manejar listas
 import httpx # Para hacer peticiones HTTP
 from datetime import datetime # Para manejar fechas y horas
 
@@ -19,40 +19,27 @@ class Producto(BaseModel):
 
 # Headers para la API de RapidAPI
 HEADERS = {
-    'x-rapidapi-key': "2c535ff618msh45a23e180ad7120p10bf71jsn950e87a33b44",
+    'x-rapidapi-key': "a44c6ca7d3msh6c3ac3b23d77accp1792bejsn7075bca9bd48",
     'x-rapidapi-host': "real-time-amazon-data.p.rapidapi.com"
 }
 
 # Endpoint para recolectar productos de los proveedores
 @app.get("/recolectar", response_model=List[Producto])
-async def recolectar(search: Optional[str] = Query(None)):
+async def recolectar(search: str = Query(..., description="Buscar productos por nombre")):
     productos = []
 
-    if search:
-        # Si hay búsqueda, se obtienen los productos de la API de RapidAPI
-        URL = "https://real-time-amazon-data.p.rapidapi.com/search"
+    # Se obtienen los productos de la API de RapidAPI
+    URL = "https://real-time-amazon-data.p.rapidapi.com/search"
 
-        PARAMS = {
-            "query": search,
-            "country": "ES",
-            "sort_by": "RELEVANCE",
-            "category_id": "667049031",
-            "product_condition": "NEW",
-            "is_prime": "false",
-            "fields": "product_title, product_price, product_url, product_photo"
-        }
-    else:
-        # Si no hay búsqueda, se obtienen todos los productos de la categoría "667049031" (Informatica)
-        URL = "https://real-time-amazon-data.p.rapidapi.com/products-by-category"
-
-        PARAMS = {
-            "category_id": "667049031",
-            "country": "ES",
-            "sort_by": "RELEVANCE",
-            "product_condition": "NEW",
-            "is_prime": "false",
-            "fields": "product_title, product_price, product_url, product_photo"
-        }
+    PARAMS = {
+        "query": search,
+        "country": "ES",
+        "sort_by": "RELEVANCE",
+        "category_id": "667049031",
+        "product_condition": "NEW",
+        "is_prime": "false",
+        "fields": "product_title, product_price, product_url, product_photo"
+    }
 
     # Usamos httpx para hacer peticiones asíncronas
     async with httpx.AsyncClient() as client:

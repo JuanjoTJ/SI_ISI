@@ -4,3 +4,4 @@ beautifulsoup4
 requests
 lxml
 pydantic
+typing-extensions

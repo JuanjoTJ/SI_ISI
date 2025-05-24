@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query # Para crear la API
 from pydantic import BaseModel # Para definir el modelo de datos
-from typing import List, Optional # Para manejar listas y tipos opcionales
+from typing import List # Para manejar listas
 import httpx # Para hacer peticiones HTTP
 from datetime import datetime # Para manejar fechas y horas
 
@@ -19,7 +19,7 @@ class Producto(BaseModel):
 
 # Headers para la API de RapidAPI
 HEADERS = {
-    'x-rapidapi-key': "2c535ff618msh45a23e180ad7120p10bf71jsn950e87a33b44",
+    'x-rapidapi-key': "a44c6ca7d3msh6c3ac3b23d77accp1792bejsn7075bca9bd48",
     'x-rapidapi-host': "aliexpress-datahub.p.rapidapi.com"
 }
 
@@ -28,28 +28,19 @@ catIDs = [7, 509]
 
 # Endpoint para recolectar productos de los proveedores
 @app.get("/recolectar", response_model=List[Producto])
-async def recolectar(search: Optional[str] = Query(None)):
+async def recolectar(search: str = Query(..., description="Buscar productos por nombre")):
     productos = []
     URL = "https://aliexpress-datahub.p.rapidapi.com/item_search_2"
 
     for catID in catIDs:
-        if search:
-            # Si hay búsqueda, se establecen parámetros de búsqueda
-            PARAMS = {
-                "q": search,
-                "sort": "default",
-                "catId": catID,
-                "region": "ES",
-                "currency": "EUR"
-            }
-        else:
-            # Si no hay búsqueda, se obtienen todos los productos de la categoría "702" (Informática) 
-            PARAMS = {
-                "sort": "default",
-                "catId": catID,
-                "region": "ES",
-                "currency": "EUR"
-            }
+        # Se establecen parámetros de búsqueda
+        PARAMS = {
+            "q": search,
+            "sort": "default",
+            "catId": catID,
+            "region": "ES",
+            "currency": "EUR"
+        }
 
         # Usamos httpx para hacer peticiones asíncronas
         async with httpx.AsyncClient() as client:

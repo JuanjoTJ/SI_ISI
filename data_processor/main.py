@@ -1,8 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import ValidationError
 from motor.motor_asyncio import AsyncIOMotorClient
-from rapidfuzz import fuzz
 from models.producto import Producto
+from difflib import SequenceMatcher
+import regex as re
 
 # Instancia de FastAPI
 app = FastAPI()
@@ -12,6 +13,130 @@ MONGO_URL = "mongodb://mongo_db:27017"
 client = AsyncIOMotorClient(MONGO_URL)
 db = client["productos_db"]
 coleccion = db["productos"]
+
+# Umbral de similitud para considerar títulos como iguales
+UMBRAL_SIMILITUD = 0.70
+
+# Stopwords que se ignorarán al normalizar el título
+STOPWORDS = {
+    # Palabras genéricas y técnicas
+    "smartphone", "smartphones", "phone", "phones", "movil", "móvil", "moviles", "móviles",
+    "pantalla", "screen", "lcd", "hd", "uhd", "oled", "ips", "tft", "hz", "full", "plus",
+    "dual", "triple", "quad", "camera", "cámara", "camaras", "cámaras", "megapixel", "mp",
+    "con", "de", "y", "the", "with", "version", "versión", "es", "ultra", "nfc", "pro",
+    "max", "mini", "lite", "edition", "edición", "nuevo", "nueva", "new", "kit", "negro",
+    "black", "blanco", "white", "azul", "blue", "rojo", "red", "gris", "gray", "grey",
+    "oro", "gold", "plata", "silver", "verde", "green", "amarillo", "yellow", "inch", "pulgadas",
+    "procesador", "processor", "cpu", "ram", "gb", "tb", "mb", "storage", "almacenamiento",
+    "bateria", "batería", "battery", "mah", "android", "ios", "windows", "wifi", "bluetooth",
+    "sim", "nano", "micro", "sd", "slot", "expansion", "expansión", "sensor", "face", "id",
+    "huella", "fingerprint", "lector", "reader", "usb", "type", "c", "lightning", "jack",
+    "auriculares", "earphones", "headphones", "altavoz", "speaker", "altavoces", "speakers",
+    "garantia", "garantía", "warranty", "incluido", "incluida", "incluidos", "incluidas",
+    "accesorios", "accesorio", "accesories", "accessory", "accessories", "cargador", "charger",
+    "cable", "manual", "usuario", "user", "manual", "español", "spanish", "english", "inglés",
+    "china", "chino", "global", "internacional", "international", "original", "oficial", "nuevo",
+    "nueva", "nuevo", "nuevos", "nuevas", "originales", "oficiales", "para", "por", "a", "en",
+    "un", "una", "unos", "unas", "el", "la", "los", "las", "del", "al", "por", "sobre", "desde",
+    "hasta", "compatible", "compatibles", "modelo", "model", "serie", "series",
+
+    # Palabras frecuentes en títulos de Xiaomi y ASUS (según los JSON)
+    "mi", "series", "oled", "intel", "amd", "ryzen", "core", "i3", "i5", "i7", "i9", "gen", "windows", "home", "pro",
+    "geforce", "mx", "ssd", "hdd", "pcie", "nvme", "ips", "fhd", "uhd", "wqxga", "wuxga", "wqhd", "touch", "led",
+    "backlit", "fingerprint", "sensor", "webcam", "hdmi", "usb", "wifi", "bluetooth", "ethernet", "battery", "mah",
+    "w", "kg", "mm", "cm", "inch", "pulgadas", "pantalla", "teclado", "keyboard", "numeric", "pad", "backlight", "cam",
+    "audio", "jack", "mic", "microphone", "speaker", "altavoz", "color", "gris", "plata", "negro", "azul", "blanco", "rojo",
+    "green", "silver", "gray", "grey", "black", "white", "blue", "red", "gold", "pink", "purple", "orange", "yellow",
+
+    # Palabras de marketing y variantes
+    "nuevo", "nueva", "original", "oficial", "edición", "edition", "2023", "2024", "2022", "2021", "2020", "plus",
+    "lite", "max", "pro", "ultra", "prime", "smart", "premium", "basic", "essential", "business", "gaming", "creator",
+    "student", "office", "home", "professional", "touchscreen", "convertible", "flip", "duo", "go", "air", "book",
+
+    # Palabras de conectividad y puertos
+    "hdmi", "vga", "displayport", "thunderbolt", "usb", "typec", "typea", "microhdmi", "minihdmi", "minidisplayport",
+    "sd", "microsd", "card", "reader", "slot", "port", "ports", "jack", "audio", "mic", "microphone", "webcam",
+
+    # Palabras de almacenamiento y memoria
+    "ram", "rom", "ssd", "hdd", "pcie", "nvme", "ddr4", "ddr5", "lpddr4", "lpddr5", "emmc", "storage", "memory",
+
+    # Palabras de batería y energía
+    "bateria", "batería", "battery", "mah", "watt", "w", "adapter", "charger", "cargador", "power", "supply",
+
+    # Palabras de dimensiones y peso
+    "mm", "cm", "kg", "g", "gram", "grams", "peso", "weight", "dimension", "dimensions", "size", "thickness", "width", "height", "depth",
+
+    # Palabras de garantía y accesorios
+    "garantia", "garantía", "warranty", "accesorio", "accesorios", "accessory", "accessories", "incluido", "incluida", "incluidos", "incluidas",
+
+    # Palabras de sistema operativo y software
+    "windows", "linux", "ubuntu", "dos", "freedos", "endless", "chrome", "chromebook", "android", "ios", "macos", "os", "sistema", "operativo",
+
+    # Palabras de conectividad extra
+    "bluetooth", "wifi", "ethernet", "lan", "wan", "wireless", "network", "4g", "5g", "lte", "sim", "nano", "micro", "dual", "triple", "quad",
+
+    # Palabras de cámara y multimedia
+    "camera", "cámara", "cam", "webcam", "megapixel", "mp", "video", "hd", "fullhd", "uhd", "4k", "8k", "hdr", "dolby", "audio", "altavoz", "speaker",
+
+    # Palabras de teclado y ratón
+    "teclado", "keyboard", "mouse", "trackpad", "touchpad", "numeric", "pad", "backlight", "backlit",
+
+    # Palabras de marketing y otras variantes
+    "nuevo", "nueva", "nuevos", "nuevas", "original", "oficial", "edición", "edition", "premium", "basic", "essential", "business", "gaming", "creator", "student", "office", "home", "professional", "touchscreen", "convertible", "flip", "duo", "go", "air", "book"
+}
+
+
+# Normaliza el título del producto
+def normalizar_titulo(titulo):
+    if not titulo:
+        return ""
+    titulo = titulo.lower()
+    titulo = re.sub(r'[^a-z0-9 ]', '', titulo)
+    titulo = re.sub(r'\s+', ' ', titulo).strip()
+    return titulo
+
+
+# Función para extraer palabras clave del título
+def extraer_palabras_clave(titulo):
+    titulo = normalizar_titulo(titulo)
+    # Unifica variantes de números y unidades (ej: 6,88 -> 688, 8+256GB -> 8gb 256gb)
+    titulo = re.sub(r'(\d+)[\s\+\-xX](\d+)(gb|tb|mb)?', r'\1gb \2gb', titulo)
+    # Separa letras y números pegados (ej: g81ultra -> g81 ultra)
+    titulo = re.sub(r'([a-z]+)(\d+)', r'\1 \2', titulo)
+    titulo = re.sub(r'(\d+)([a-z]+)', r'\1 \2', titulo)
+    # Elimina palabras sueltas de 1 o 2 caracteres (menos números)
+    palabras = [w for w in titulo.split() if len(w) > 2 or w.isdigit()]
+    # Elimina stopwords
+    palabras_clave = set(palabras) - STOPWORDS
+    return palabras_clave
+
+
+# Función para comparar títulos
+def calcular_ratio(titulo1, titulo2):
+    # Extrae y ordena palabras clave de ambos títulos normalizados
+    palabras1 = sorted(extraer_palabras_clave(titulo1))
+    palabras2 = sorted(extraer_palabras_clave(titulo2))
+    cadena1 = " ".join(palabras1)
+    cadena2 = " ".join(palabras2)
+    ratio = SequenceMatcher(None, cadena1, cadena2).ratio()
+    return ratio
+
+
+# Busca si el producto ya existe en la base de datos por product_id (puede ser lista o str)
+async def buscar_producto_por_id(producto_dict):
+    product_id_nuevo = producto_dict.get("product_id")
+    if not product_id_nuevo:
+        return None
+
+    # Si es una lista, buscamos coincidencia con cualquier id de la lista
+    if isinstance(product_id_nuevo, list):
+        query = {"product_id": {"$in": product_id_nuevo}}
+    else:
+        query = {"product_id": product_id_nuevo}
+
+    producto_existente = await coleccion.find_one(query)
+    return producto_existente
+
 
 # Transforma el documento para que los campos "_id"
 def transformar_id(documento: dict) -> dict:
@@ -38,35 +163,6 @@ def transformar_a_producto(datos: dict) -> Producto:
         raise HTTPException(status_code=400, detail=f"Error al transformar los datos: {str(e)}")
 
 
-# Busca si el producto ya existe en la base de datos
-async def buscar_producto_existente(producto_dict):
-    productos_en_db = coleccion.find({})  # Obtiene todos los productos de la base de datos
-    async for producto in productos_en_db:
-        # Verifica que ambos títulos no sean nulos o vacíos
-        if not producto_dict["product_title"] or not producto["product_title"]:
-            continue
-
-        # Calcula la similitud entre los títulos usando fuzz.WRatio
-        similitud = fuzz.token_set_ratio(producto_dict["product_title"], producto["product_title"])
-
-        # Considera una coincidencia si la similitud es del 90% o más
-        if similitud >= 90:
-            return producto
-
-    # Si no se encuentra ningún producto similar, devuelve None
-    return None
-
-# Endpoint para serializar el "_id" un documento de productos
-@app.post("/serializar_documento")
-async def serializar_documento(documento: dict):
-    try:
-        # Aplica la función transformar_id al diccionario recibido
-        documento_serializado = transformar_id(documento)
-        return documento_serializado
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al serializar el documento: {str(e)}")
-
-
 # Endpoint para insertar o actualizar uno o varios productos
 @app.post("/insertar_o_actualizar_productos")
 async def insertar_o_actualizar_productos(productos: list[dict]):
@@ -86,56 +182,141 @@ async def insertar_o_actualizar_productos(productos: list[dict]):
             producto_dict = producto.dict()
 
             # Busca si el producto ya existe en la base de datos usando similitud
-            producto_existente = await buscar_producto_existente(producto_dict)
+            producto_existente = await buscar_producto_por_id(producto_dict)
 
             if producto_existente:
-                # Integra los datos de las distintas fuentes
-                producto_actualizado = {
-                    "product_id": producto_existente["product_id"],
-                    "product_title": producto_existente["product_title"],
-                    "product_price": list(set(producto_existente.get("product_price", []) + [producto_dict["product_price"]])),
-                    "product_url": list(set(producto_existente.get("product_url", []) + [producto_dict["product_url"]])),
-                    "product_photo": producto_existente.get("product_photo") or producto_dict.get("product_photo"),
-                    "product_provider": list(set(producto_existente.get("product_provider", []) + [producto_dict["product_provider"]])),
-                    "timestamp": producto_dict.get("timestamp") or producto_existente.get("timestamp")
-                }
+                # Si existe, actualiza las listas de los campos relevante
+                ids_existentes = producto_existente.get("product_id", [])
+                if not isinstance(ids_existentes, list):
+                    ids_existentes = [ids_existentes]
+                precios_existentes = producto_existente.get("product_price", [])
+                if not isinstance(precios_existentes, list):
+                    precios_existentes = [precios_existentes]
+                urls_existentes = producto_existente.get("product_url", [])
+                if not isinstance(urls_existentes, list):
+                    urls_existentes = [urls_existentes]
+                proveedores_existentes = producto_existente.get("product_provider", [])
+                if not isinstance(proveedores_existentes, list):
+                    proveedores_existentes = [proveedores_existentes]
 
-                # Actualiza el producto existente en la base de datos
+
+                # El nuevo id a actualizar
+                id_nuevo = producto_dict.get("product_id")
+                # Buscar el índice del id antiguo (si existe)
+                idx = None
+                if id_nuevo in ids_existentes:
+                    idx = ids_existentes.index(id_nuevo)
+                else:
+                    # Si no está, no eliminamos nada
+                    idx = None
+
+                # Elimina el dato antiguo en la posición correspondiente de cada lista
+                if idx is not None:
+                    ids_existentes.pop(idx)
+                    if idx < len(precios_existentes):
+                        precios_existentes.pop(idx)
+                    if idx < len(urls_existentes):
+                        urls_existentes.pop(idx)
+                    if idx < len(proveedores_existentes):
+                        proveedores_existentes.pop(idx)
+
+
+                # Añade el nuevo dato al final de cada lista
+                ids_existentes.append(producto_dict.get("product_id"))
+                precios_existentes.append(producto_dict.get("product_price"))
+                urls_existentes.append(producto_dict.get("product_url"))
+                proveedores_existentes.append(producto_dict.get("product_provider"))
+
+                # Construye el producto actualizado respetando los demás campos
+                producto_actualizado = producto_existente.copy()
+                producto_actualizado["product_id"] = ids_existentes
+                producto_actualizado["product_price"] = precios_existentes
+                producto_actualizado["product_url"] = urls_existentes
+                producto_actualizado["product_provider"] = proveedores_existentes
+                producto_actualizado["timestamp"] = producto_dict.get("timestamp", None)
+
+                # Actualiza el producto en la base de datos
                 await coleccion.update_one(
                     {"_id": producto_existente["_id"]},
                     {"$set": producto_actualizado}
                 )
 
-                # Recupera el producto actualizado desde la base de datos
-                producto_actualizado = await coleccion.find_one({"_id": producto_existente["_id"]})
                 # Transforma el documento para que el campo "_id" sea serializable
                 producto_serializable = transformar_id(producto_actualizado)
-            else:
-                # Inserta el nuevo producto
-                producto_dict["product_price"] = [producto_dict["product_price"]]
-                producto_dict["product_url"] = [producto_dict["product_url"]]
-                producto_dict["product_provider"] = [producto_dict["product_provider"]]
 
-                insert_result = await coleccion.insert_one(producto_dict)
-                # Añade el `_id` generado al producto
-                producto_dict["_id"] = insert_result.inserted_id
-                # Transforma el documento para que el campo "_id" sea serializable
-                producto_serializable = transformar_id(producto_dict)
+            else:
+                # Si NO existe por product_id, busca integración por similitud de títul
+                titulo_nuevo = producto_dict.get("product_title", "")
+                producto_similar = None
+                max_ratio = 0
+                
+                # Busca en la colección un producto con título suficientemente parecido
+                async for prod in coleccion.find({}):
+                    titulo_existente = prod.get("product_title", "")
+                    ratio = calcular_ratio(titulo_nuevo, titulo_existente)
+                    if ratio > max_ratio and ratio >= UMBRAL_SIMILITUD:
+                        max_ratio = ratio
+                        producto_similar = prod
+                
+                if producto_similar:
+                    # Si encuentra un producto similar, integra los datos en sus listas
+                    ids_existentes = producto_similar.get("product_id", [])
+                    if not isinstance(ids_existentes, list):
+                        ids_existentes = [ids_existentes]
+                    precios_existentes = producto_similar.get("product_price", [])
+                    if not isinstance(precios_existentes, list):
+                        precios_existentes = [precios_existentes]
+                    urls_existentes = producto_similar.get("product_url", [])
+                    if not isinstance(urls_existentes, list):
+                        urls_existentes = [urls_existentes]
+                    proveedores_existentes = producto_similar.get("product_provider", [])
+                    if not isinstance(proveedores_existentes, list):
+                        proveedores_existentes = [proveedores_existentes]
+
+                    ids_existentes.append(producto_dict.get("product_id"))
+                    precios_existentes.append(producto_dict.get("product_price"))
+                    urls_existentes.append(producto_dict.get("product_url"))
+                    proveedores_existentes.append(producto_dict.get("product_provider"))
+
+                    # Construye el producto integrado respetando los demás campos
+                    producto_integrado = producto_similar.copy()
+                    producto_integrado["product_id"] = ids_existentes
+                    producto_integrado["product_price"] = precios_existentes
+                    producto_integrado["product_url"] = urls_existentes
+                    producto_integrado["product_provider"] = proveedores_existentes
+                    producto_integrado["timestamp"] = producto_dict.get("timestamp", None)
+                    
+                    
+                    # Actualiza el producto similar en la base de datos
+                    await coleccion.update_one(
+                        {"_id": producto_similar["_id"]},
+                        {"$set": producto_integrado}
+                    )
+                    producto_serializable = transformar_id(producto_integrado)
+                else:
+                    # Si no hay producto similar, inserta el nuevo producto como documento independiente
+                    producto_dict["product_id"] = [producto_dict["product_id"]]
+                    producto_dict["product_price"] = [producto_dict["product_price"]]
+                    producto_dict["product_url"] = [producto_dict["product_url"]]
+                    producto_dict["product_provider"] = [producto_dict["product_provider"]]
+
+                    insert_result = await coleccion.insert_one(producto_dict)
+                    producto_dict["_id"] = insert_result.inserted_id
+                    producto_serializable = transformar_id(producto_dict)
+                
 
             # Agrega el producto procesado (actualizado o insertado) a la lista de resultados
             productos_insertados_o_actualizados.append(producto_serializable)
 
-        # Deduplicar productos por 'product_title'
-        productos_unicos = []
-        titulos_vistos = set()
-        for producto in productos_insertados_o_actualizados:
-            titulo = producto.get("product_title")
-            if titulo and titulo not in titulos_vistos:
-                productos_unicos.append(producto)
-                titulos_vistos.add(titulo)
+        # Elimina productos repetidos por _id antes de devolver el resultado
+        productos_unicos = {}
+        for prod in productos_insertados_o_actualizados:
+            clave = prod.get("_id")
+            productos_unicos[clave] = prod
 
-        return productos_unicos
-
+        return list(productos_unicos.values())
+    
+    
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=f"Error de validación: {e}")
     except Exception as e:
