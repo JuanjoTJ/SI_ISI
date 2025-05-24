@@ -57,12 +57,14 @@ async def recolectar(search: str = Query(..., description="Buscar productos por 
                         # Limpieza y procesamiento de los datos
                         product_price = item.get("product_price", "0")
                         if product_price:
-                            product_price = float(
+                            product_price = (
                                 product_price
                                 .replace("\xa0", "")  # Elimina espacios no separables
                                 .replace("€", "")    # Elimina el símbolo de euro
+                                .replace(".", "")    # Elimina el punto para miles
                                 .replace(",", ".")   # Cambia coma por punto para formato decimal
                             )
+                            product_price = float(product_price)
                         else:
                             product_price = 0.0
 

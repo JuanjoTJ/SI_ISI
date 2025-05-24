@@ -56,6 +56,30 @@ async def recolectar_y_actualizar(search: str):
         raise HTTPException(status_code=500, detail=f"Error al recolectar o actualizar productos: {str(e)}")
 
 
+async def scrapear_y_actualizar():
+    try:
+        # Llama al scraper
+        nuevos_productos = await web_scraping()
+
+        # Si se encontraron nuevos productos, envíalos al data_processor
+        if nuevos_productos:
+            async with httpx.AsyncClient() as client:
+                # Envía los productos al data_processor para insertar o actualizar
+                response = await client.post(
+                    "http://data_processor:13000/insertar_o_actualizar_productos",
+                    json=nuevos_productos
+                )
+                response.raise_for_status()  # Lanza una excepción si la respuesta no es exitosa
+
+                # Devuelve los productos procesados desde el data_processor
+                return response.json()
+        return None
+
+    except Exception as e:
+        # Maneja cualquier excepción durante la recolección o actualización
+        raise HTTPException(status_code=500, detail=f"Error al scrapear o actualizar productos: {str(e)}")
+    
+
 # Define una función asíncrona para obtener productos filtrados por búsqueda de la base de datos + otras fuentes
 async def obtener_productos(search: str):
     try:
@@ -143,19 +167,12 @@ async def recolectar_desde_aliexpress(search: str):
 
 
 # Define una función asíncrona para scrapear datos desde un sitio web de prueba
-async def web_scraping(search: str):
+async def web_scraping(search: str = None):
     try:
-        # Crea un cliente HTTP asíncrono
         async with httpx.AsyncClient() as client:
-            # Hace una petición GET al servicio externo "scraper"
-            response = await client.get("http://scraper:11000/scrapear", params={"search": search})
-
-            # Lanza una excepción si la respuesta no es exitosa
+            params = {"search": search} if search else {}
+            response = await client.get("http://scraper:11000/scrapear", params=params)
             response.raise_for_status()
-
-            # Devuelve los datos recolectados en formato JSON
             return response.json()
-        
     except Exception as e:
-        # Maneja cualquier excepción que ocurra durante el scraping
         return {"error": f"Fallo al scrapear datos: {str(e)}"}

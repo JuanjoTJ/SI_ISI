@@ -85,6 +85,16 @@ STOPWORDS = {
     "nuevo", "nueva", "nuevos", "nuevas", "original", "oficial", "edición", "edition", "premium", "basic", "essential", "business", "gaming", "creator", "student", "office", "home", "professional", "touchscreen", "convertible", "flip", "duo", "go", "air", "book"
 }
 
+# Contador para asignar IDs únicos a productos scrapeados
+PRODUCT_ID_COUNTER = 1
+
+# Asigna un nuevo ID de producto para scraping
+def asignar_id_scraping():
+    global PRODUCT_ID_COUNTER
+    nuevo_id = f"SCRAPED_{PRODUCT_ID_COUNTER:06d}"
+    PRODUCT_ID_COUNTER += 1
+    return nuevo_id
+
 
 # Normaliza el título del producto
 def normalizar_titulo(titulo):
@@ -148,9 +158,14 @@ def transformar_id(documento: dict) -> dict:
 # Función para transformar los datos al modelo Producto
 def transformar_a_producto(datos: dict) -> Producto:
     try:
+        # Asigna un product_id si no existe
+        product_id = datos.get("asin") or datos.get("itemId") or datos.get("product_id")
+        if not product_id:
+            product_id = asignar_id_scraping()
+            
         # Normaliza los datos para que cumplan con el modelo Producto
         return Producto(
-            product_id=datos.get("asin") or datos.get("itemId",""),
+            product_id=product_id,
             product_title=datos.get("product_title") or datos.get("title", ""),
             product_price=datos.get("product_price") or datos.get("promotionPrice") or datos.get("price", 0.0),
             product_url=datos.get("product_url") or datos.get("itemUrl", ""),

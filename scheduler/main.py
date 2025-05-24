@@ -7,10 +7,10 @@ import sys
 sys.stdout.reconfigure(line_buffering=True)
 
 def actualizar_db():
-    print(f"[{datetime.now()}] Ejecutando recolección periódica...")
+    print(f"[{datetime.now()}] Ejecutando scrapeo periódico...")
     try:
-        # Realiza una solicitud al endpoint /productos del backend
-        response = httpx.get("http://backend:9000/productos")
+        # Realiza una solicitud al endpoint /scrapear_y_actualizar del backend
+        response = httpx.get("http://backend:9000/scrapear_y_actualizar")
         response.raise_for_status()  # Lanza una excepción si el código de estado no es 2xx
 
         # Mensaje de confirmación
