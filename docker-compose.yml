@@ -13,7 +13,7 @@ services:
   api_gateway:
     build: ./api_gateway
     ports:
-      - "8001:8001"
+      - "8001:8000"
     depends_on:
       - backend
 
